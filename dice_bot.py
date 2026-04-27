@@ -16,7 +16,7 @@ ADMIN_ID = 8317757440  # ⚠️ ضع معرفك الحقيقي هنا
 def is_admin(user_id):
     return user_id == ADMIN_ID
 
-# ================== مضاعفات الفوز (للأدمن فقط) ==================
+# ================== مضاعفات الفوز ==================
 WIN_MULTIPLIERS = {
     1: 2,
     2: 2,
@@ -26,7 +26,7 @@ WIN_MULTIPLIERS = {
     6: 10
 }
 
-# جوائز الجاكبوت (للأدمن فقط)
+# جوائز الجاكبوت
 JACKPOT_MULTIPLIERS = [20, 30, 50, 100]
 
 # أشكال النرد الكبيرة
@@ -39,50 +39,50 @@ DICE_LARGE = {
     6: "┌─────────┐\n│  ●   ●  │\n│  ●   ●  │\n│  ●   ●  │\n└─────────┘"
 }
 
-DICE_ANIMATION = ["🎲", "🎲", "🎲", "🎲", "🎲", "🎲"]
+# خيارات الرهان
+BET_OPTIONS = [1, 2, 5, 10, 25, 30, 50, 100]
 
-# ================== دوال مساعدة ==================
+# تخزين الرهان المختار لكل مستخدم
+user_selected_bet = {}
+
+# ================== دوال مساعدة سريعة ==================
 def send_message(chat_id, text, reply_markup=None):
     data = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
     if reply_markup:
         data["reply_markup"] = json.dumps(reply_markup)
     try:
-        requests.post(URL + "sendMessage", json=data, timeout=10)
-    except Exception as e:
-        print(f"Error sending message: {e}")
+        requests.post(URL + "sendMessage", json=data, timeout=5)
+    except:
+        pass
 
 def edit_message(chat_id, message_id, text, reply_markup=None):
     data = {"chat_id": chat_id, "message_id": message_id, "text": text, "parse_mode": "Markdown"}
     if reply_markup:
         data["reply_markup"] = json.dumps(reply_markup)
     try:
-        requests.post(URL + "editMessageText", json=data, timeout=10)
-    except Exception as e:
-        print(f"Error editing message: {e}")
-
-def delete_message(chat_id, message_id):
-    try:
-        requests.post(URL + "deleteMessage", json={"chat_id": chat_id, "message_id": message_id}, timeout=10)
+        requests.post(URL + "editMessageText", json=data, timeout=5)
     except:
         pass
 
 def answer_callback(callback_id):
     try:
-        requests.post(URL + "answerCallbackQuery", json={"callback_query_id": callback_id}, timeout=10)
-    except Exception as e:
-        print(f"Error answering callback: {e}")
+        requests.post(URL + "answerCallbackQuery", json={"callback_query_id": callback_id}, timeout=3)
+    except:
+        pass
 
-# ================== أزرار اللعبة (بدون معلومات داخلية) ==================
-BET_OPTIONS = [1, 2, 5, 10, 25, 30, 50, 100]
+def answer_callback_alert(callback_id, text):
+    """إرسال تنبيه منبثق للمستخدم"""
+    try:
+        requests.post(URL + "answerCallbackQuery", json={"callback_query_id": callback_id, "text": text, "show_alert": True}, timeout=3)
+    except:
+        pass
 
-# قاموس لتخزين الرهان المختار لكل مستخدم
-user_selected_bet = {}
-
+# ================== أزرار اللعبة ==================
 def get_menu_keyboard():
     return {
         "inline_keyboard": [
             [{"text": "🎲 ابدأ اللعب", "callback_data": "play"}],
-            [{"text": "💰 رصيدي", "callback_data": "balance"}, {"text": "📊 الترتيب", "callback_data": "leaderboard"}],
+            [{"text": "💰 رصيدي", "callback_data": "balance"}],
             [{"text": "❓ المساعدة", "callback_data": "help"}]
         ]
     }
@@ -97,7 +97,7 @@ def get_bet_keyboard():
             row = []
     if row:
         buttons.append(row)
-    buttons.append([{"text": "🔙 القائمة الرئيسية", "callback_data": "menu"}])
+    buttons.append([{"text": "🏠 القائمة الرئيسية", "callback_data": "menu"}])
     return {"inline_keyboard": buttons}
 
 def get_roll_keyboard():
@@ -116,17 +116,27 @@ def get_play_again_keyboard():
         ]
     }
 
-# ================== دوال اللعبة (للاعبين) ==================
+def get_main_menu_keyboard():
+    return {
+        "inline_keyboard": [
+            [{"text": "🏠 القائمة الرئيسية", "callback_data": "menu"}]
+        ]
+    }
+
+# ================== دوال اللعبة ==================
 def start_game(chat_id, user_id, username, first_name):
     create_user(user_id, username, first_name)
     global user_selected_bet
     user_selected_bet[user_id] = None
     
-    msg = """🎲 *مرحباً بك في لعبة النرد!* 🎲
+    user = get_user(user_id)
+    coins = user[3] if user else 0
+    
+    msg = f"""🎲 *مرحباً بك في لعبة النرد!* 🎲
 
-✨ *اختر مبلغ الرهان وابدأ اللعب* ✨
+💰 رصيدك الحالي: {coins} Coin
 
-💡 اضغط على زر "ابدأ اللعب" لاختيار رهانك"""
+✨ *اختر رهانك وابدأ اللعب* ✨"""
     send_message(chat_id, msg, reply_markup=get_menu_keyboard())
 
 def show_balance(chat_id, message_id, user_id):
@@ -141,26 +151,11 @@ def show_balance(chat_id, message_id, user_id):
 📊 *إحصائياتك:*
 ├─ 🎲 عدد اللفات: {rolls}
 ├─ 🏆 عدد مرات الفوز: {wins}
-└─ 📈 نسبة الفوز: {round(wins/rolls*100, 1) if rolls > 0 else 0}%
-
-🎯 *استمر في اللعب لزيادة رصيدك!*"""
+└─ 📈 نسبة الفوز: {round(wins/rolls*100, 1) if rolls > 0 else 0}%"""
+        
         edit_message(chat_id, message_id, msg, reply_markup=get_menu_keyboard())
     else:
         edit_message(chat_id, message_id, "❌ حدث خطأ", reply_markup=get_menu_keyboard())
-
-def show_leaderboard(chat_id, message_id):
-    top_users = get_top_users(10)
-    if top_users:
-        msg = "🏆 *قائمة الأغنياء* 🏆\n\n"
-        medals = ["🥇", "🥈", "🥉", "📌", "📌", "📌", "📌", "📌", "📌", "📌"]
-        for i, user in enumerate(top_users[:10], 1):
-            name = user[2] or user[1] or f"مستخدم {user[0]}"
-            if len(name) > 15:
-                name = name[:12] + "..."
-            msg += f"{medals[i-1]} *{i}.* {name}\n   └─ 💰 {user[3]} Coin\n\n"
-        edit_message(chat_id, message_id, msg, reply_markup=get_menu_keyboard())
-    else:
-        edit_message(chat_id, message_id, "📭 لا يوجد مستخدمون بعد", reply_markup=get_menu_keyboard())
 
 def show_help(chat_id, message_id):
     msg = """❓ *كيفية اللعب* ❓
@@ -209,12 +204,12 @@ def select_bet(chat_id, message_id, user_id, bet_amount):
     edit_message(chat_id, message_id, msg, reply_markup=get_roll_keyboard())
 
 def perform_roll_animation(chat_id, message_id):
-    """عرض حركة النرد المتغيرة"""
-    for i in range(5):
+    """حركة النرد السريعة"""
+    for i in range(4):
         random_dice = random.randint(1, 6)
-        frame = f"🎲 *جاري الرمي...* 🎲\n\n```\n{DICE_LARGE[random_dice]}\n```\n" + "⬇️" * (i + 1)
-        edit_message(chat_id, message_id, frame, parse_mode="Markdown")
-        time.sleep(0.3)
+        frame = f"🎲 *جاري الرمي...* 🎲\n\n```\n{DICE_LARGE[random_dice]}\n```"
+        edit_message(chat_id, message_id, frame)
+        time.sleep(0.15)
 
 def perform_roll(chat_id, message_id, user_id):
     global user_selected_bet
@@ -242,21 +237,22 @@ def perform_roll(chat_id, message_id, user_id):
     update_total_bets(user_id, bet_amount)
     update_pool_bets(bet_amount)
     
-    # عرض حركة النرد
+    # حركة النرد
     perform_roll_animation(chat_id, message_id)
     
-    # رمي النرد النهائي
+    # النتيجة النهائية
     dice_result = random.randint(1, 6)
     dice_face_large = DICE_LARGE[dice_result]
     multiplier = WIN_MULTIPLIERS[dice_result]
     win_amount = bet_amount * multiplier
     
-    # التحقق من الجاكبوت
+    # نظام Pool
     pool_total, pool_payout, pool_percent = get_pool_data()
     available_payout = int(pool_total * pool_percent / 100)
     remaining_payout = available_payout - pool_payout
     
-    jackpot_chance = get_jackpot_chance() * 5 / 100  # 5% فرصة
+    # الجاكبوت
+    jackpot_chance = get_jackpot_chance() / 100
     is_jackpot = random.random() < jackpot_chance
     
     if is_jackpot and remaining_payout > 0:
@@ -278,6 +274,9 @@ def perform_roll(chat_id, message_id, user_id):
 ✨ *فوز كبير!* ✨
 💰 المكسب: +{win_amount} Coin
 💎 الرصيد الجديد: {new_coins} Coin"""
+            
+            # إرسال تنبيه منبثق للمستخدم
+            answer_callback_alert(None, f"🎰 مبروك! ربحت جاكبوت بقيمة {win_amount} Coin! 🎰")
         else:
             result_text = f"""🎲 *النتيجة*
 
@@ -311,13 +310,15 @@ def perform_roll(chat_id, message_id, user_id):
     increment_rolls_count(user_id)
     add_roll_log(user_id, user[4] + 1, bet_amount, dice_result, win_amount <= remaining_payout, win_amount if win_amount <= remaining_payout else 0, coins, new_coins)
     
-    # إعادة تعيين الرهان المختار
-    user_selected_bet[user_id] = None
-    
     final_msg = f"{result_text}\n\n✨ *هل تريد اللعب مرة أخرى؟* ✨"
     edit_message(chat_id, message_id, final_msg, reply_markup=get_play_again_keyboard())
 
-# ================== أوامر المشرف (للتعديل الكامل) ==================
+def change_bet(chat_id, message_id, user_id):
+    global user_selected_bet
+    user_selected_bet[user_id] = None
+    show_bet_selection(chat_id, message_id, user_id)
+
+# ================== أوامر المشرف ==================
 def handle_admin_commands(chat_id, text):
     # تغيير نسبة Pool
     if text.startswith("/set_pool"):
@@ -332,7 +333,7 @@ def handle_admin_commands(chat_id, text):
             return True
     
     # تغيير نسبة الجاكبوت
-    if text.startswith("/set_jackpot_chance"):
+    if text.startswith("/set_jackpot"):
         try:
             percent = float(text.split()[1])
             percent = max(1, min(20, percent))
@@ -340,35 +341,7 @@ def handle_admin_commands(chat_id, text):
             send_message(chat_id, f"✅ تم تغيير نسبة الجاكبوت إلى {percent}%")
             return True
         except:
-            send_message(chat_id, "❌ استخدم: /set_jackpot_chance 5")
-            return True
-    
-    # تغيير نسبة الجاكبوت من الـ Pool
-    if text.startswith("/set_jackpot_pool"):
-        try:
-            percent = float(text.split()[1])
-            percent = max(1, min(10, percent))
-            set_setting("jackpot_percentage", str(percent))
-            send_message(chat_id, f"✅ تم تغيير نسبة الجاكبوت من Pool إلى {percent}%")
-            return True
-        except:
-            send_message(chat_id, "❌ استخدم: /set_jackpot_pool 2")
-            return True
-    
-    # تغيير مضاعفات الفوز
-    if text.startswith("/set_multiplier"):
-        try:
-            parts = text.split()
-            number = int(parts[1])
-            multiplier = int(parts[2])
-            if 1 <= number <= 6:
-                current = get_multipliers()
-                current[number] = multiplier
-                set_multipliers(current)
-                send_message(chat_id, f"✅ تم تغيير مضاعف الرقم {number} إلى ×{multiplier}")
-            return True
-        except:
-            send_message(chat_id, "❌ استخدم: /set_multiplier 6 15")
+            send_message(chat_id, "❌ استخدم: /set_jackpot 5")
             return True
     
     # إضافة رصيد لمستخدم
@@ -383,7 +356,7 @@ def handle_admin_commands(chat_id, text):
                 update_user_coins(target_id, new_coins)
                 send_message(chat_id, f"✅ تم إضافة {amount} Coin للمستخدم {target_id}\n💰 رصيده الآن: {new_coins} Coin")
             else:
-                send_message(chat_id, f"❌ المستخدم {target_id} غير موجود")
+                send_message(chat_id, f"❌ المستخدم {target_id} غير موجود\n💡 أرسل /start أولاً")
             return True
         except:
             send_message(chat_id, "❌ استخدم: /add [ID] [المبلغ]")
@@ -406,12 +379,6 @@ def handle_admin_commands(chat_id, text):
             send_message(chat_id, "❌ استخدم: /set [ID] [الرصيد]")
             return True
     
-    # إعادة تعيين Pool
-    if text == "/reset_pool":
-        reset_pool()
-        send_message(chat_id, "✅ تم إعادة تعيين Pool")
-        return True
-    
     # عرض إحصائيات Pool
     if text == "/pool_stats":
         total_bets, total_payout, pool_percent = get_pool_data()
@@ -423,9 +390,7 @@ def handle_admin_commands(chat_id, text):
 💎 الأرباح الموزعة: {total_payout} Coin
 ✨ الأرباح المتبقية: {max(0, remaining)} Coin
 
-🎰 إعدادات الجاكبوت:
-├─ نسبة الحدوث: {get_jackpot_chance()}%
-└─ نسبة من Pool: {get_jackpot_percentage()}%"""
+🎰 نسبة الجاكبوت: {get_jackpot_chance()}%"""
         send_message(chat_id, msg)
         return True
     
@@ -444,25 +409,25 @@ def handle_admin_commands(chat_id, text):
             send_message(chat_id, "📭 لا يوجد مستخدمون بعد")
         return True
     
-    # عرض المساعدة
+    # إعادة تعيين Pool
+    if text == "/reset_pool":
+        reset_pool()
+        send_message(chat_id, "✅ تم إعادة تعيين Pool")
+        return True
+    
+    # المساعدة
     if text == "/admin":
-        msg = """🔐 *لوحة تحكم المشرف* 🔐
+        msg = """🔐 *أوامر المشرف*
 
-🎯 *إعدادات Pool:*
-/set_pool 30 - تغيير نسبة أرباح Pool
+🎯 *الإعدادات:*
+/set_pool 30 - نسبة أرباح Pool
+/set_jackpot 5 - نسبة الجاكبوت
 
-🎰 *إعدادات الجاكبوت:*
-/set_jackpot_chance 5 - نسبة حدوث الجاكبوت (%)
-/set_jackpot_pool 2 - نسبة الجاكبوت من Pool (%)
-
-🎲 *مضاعفات الفوز:*
-/set_multiplier 6 15 - تغيير مضاعف رقم
-
-💰 *إدارة الأرصدة:*
+💰 *الأرصدة:*
 /add [ID] [مبلغ] - إضافة رصيد
 /set [ID] [رصيد] - تعيين رصيد
 
-📊 *إحصائيات:*
+📊 *الإحصائيات:*
 /pool_stats - حالة Pool
 /users - قائمة المستخدمين
 /reset_pool - إعادة تعيين Pool"""
@@ -470,25 +435,6 @@ def handle_admin_commands(chat_id, text):
         return True
     
     return False
-
-# ================== دوال حفظ المضاعفات في قاعدة البيانات ==================
-def get_multipliers():
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-    multipliers = {}
-    for i in range(1, 7):
-        val = c.execute("SELECT value FROM settings WHERE key = ?", (f"multiplier_{i}",)).fetchone()
-        multipliers[i] = int(val[0]) if val else (2 if i <= 2 else (3 if i == 3 else (4 if i == 4 else (5 if i == 5 else 10))))
-    conn.close()
-    return multipliers
-
-def set_multipliers(multipliers):
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-    for num, mult in multipliers.items():
-        c.execute("REPLACE INTO settings (key, value) VALUES (?, ?)", (f"multiplier_{num}", str(mult)))
-    conn.commit()
-    conn.close()
 
 # ================== معالجة الأزرار ==================
 def handle_callback(query):
@@ -504,7 +450,7 @@ def handle_callback(query):
     if data == "play":
         show_bet_selection(chat_id, message_id, user_id)
     elif data == "change_bet":
-        show_bet_selection(chat_id, message_id, user_id)
+        change_bet(chat_id, message_id, user_id)
     elif data.startswith("select_bet_"):
         bet_amount = int(data.split("_")[2])
         select_bet(chat_id, message_id, user_id, bet_amount)
@@ -512,8 +458,6 @@ def handle_callback(query):
         perform_roll(chat_id, message_id, user_id)
     elif data == "balance":
         show_balance(chat_id, message_id, user_id)
-    elif data == "leaderboard":
-        show_leaderboard(chat_id, message_id)
     elif data == "menu":
         start_game(chat_id, user_id, user.get("username", ""), user.get("first_name", ""))
     elif data == "help":
@@ -536,7 +480,7 @@ def handle_updates(updates):
         elif "callback_query" in update:
             handle_callback(update["callback_query"])
 
-# ================== إعدادات المضاعفات الافتراضية ==================
+# ================== إعدادات المضاعفات ==================
 def init_multipliers():
     for i in range(1, 7):
         default = 2 if i <= 2 else (3 if i == 3 else (4 if i == 4 else (5 if i == 5 else 10)))
@@ -561,23 +505,21 @@ Thread(target=run_dummy_server, daemon=True).start()
 
 # ================== تشغيل البوت ==================
 print("=" * 50)
-print("🎲 بوت النرد يعمل... 🎲")
+print("🎲 بوت النرد السريع يعمل... 🎲")
 print("=" * 50)
-print("✅ نرد كبير متحرك")
-print("✅ أوامر المشرف: /admin")
+print("✅ رصيد ابتدائي: 0 Coin")
+print("✅ الرهان يبقى محفوظاً")
+print("✅ رسائل منبثقة للجاكبوت")
 print("=" * 50)
 
 last_update_id = 0
 while True:
     try:
-        response = requests.get(URL + "getUpdates", params={"offset": last_update_id + 1, "timeout": 30}, timeout=35)
+        response = requests.get(URL + "getUpdates", params={"offset": last_update_id + 1, "timeout": 25}, timeout=30)
         updates = response.json()
         if updates.get("ok") and updates.get("result"):
             handle_updates(updates)
             last_update_id = updates["result"][-1]["update_id"]
-    except requests.exceptions.Timeout:
-        continue
-    except Exception as e:
-        print(f"⚠️ خطأ: {e}")
-        time.sleep(5)
-    time.sleep(1)
+    except:
+        pass
+    time.sleep(0.5)
