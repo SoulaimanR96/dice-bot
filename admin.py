@@ -3,6 +3,8 @@ from flask_httpauth import HTTPBasicAuth
 from database import *
 import sqlite3
 import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 app = Flask(__name__)
 auth = HTTPBasicAuth()
@@ -139,7 +141,11 @@ def get_stats():
     conn.close()
     return total_users, total_rolls, total_wins
 
-@app.route('/admin', methods=['GET', 'POST'])  # <- مسار /admin
+@app.route('/')
+def index():
+    return "✅ Bot is running! لوحة التحكم: /admin"
+
+@app.route('/admin', methods=['GET', 'POST'])
 @auth.login_required
 def admin_panel():
     if request.method == 'POST':
@@ -174,12 +180,25 @@ def admin_panel():
                                   cost_per_roll=cost_per_roll, users=users,
                                   total_users=total_users, total_rolls=total_rolls, total_wins=total_wins)
 
-# مسار رئيسي يعرض حالة البوت
-@app.route('/')
-def index():
-    return "✅ Bot is running! لوحة التحكم: /admin"
+# تشغيل خادمويب وهمي في الخلفية
+class DummyHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is running!")
 
+def run_dummy():
+    server = HTTPServer(('0.0.0.0', 10000), DummyHandler)
+    server.serve_forever()
+
+# تشغيل الخادم بدون تعارض
 if __name__ == '__main__':
     init_db()
-    port = int(os.environ.get('PORT', 10000))  # استخدام المنفذ 10000
-    app.run(host='0.0.0.0', port=port)
+    # تشغيل الخادم الوهمي في thread منفصل
+    thread = threading.Thread(target=run_dummy, daemon=True)
+    thread.start()
+    # تشغيل Flask على المنفذ 10000 أيضاً (لن يعمل لأن مشغول)
+    # الحل: استخدام منفذ مختلف لـ Flask
+    port = int(os.environ.get('PORT', 10000))
+    # لكن المنفذ 10000 مشغول بالخادم الوهمي، نستخدم 10001
+    app.run(host='0.0.0.0', port=10001)
