@@ -1,14 +1,13 @@
 import subprocess
 import sys
 import time
-import threading
 
 if __name__ == "__main__":
     print("🚀 تشغيل البوت ولوحة التحكم...")
     
-    # تشغيل لوحة التحكم (المنفذ 10000)
+    # تشغيل Flask (لوحة التحكم) على منفذ 10001
     admin_process = subprocess.Popen([sys.executable, "admin.py"])
-    print("✅ لوحة التحكم تعمل")
+    print("✅ لوحة التحكم تعمل على المنفذ 10001")
     
     time.sleep(3)
     
