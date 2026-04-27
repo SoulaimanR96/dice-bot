@@ -1,22 +1,20 @@
 import subprocess
 import sys
-import os
 import time
+import threading
 
 if __name__ == "__main__":
     print("🚀 تشغيل البوت ولوحة التحكم...")
     
-    # تشغيل لوحة التحكم (Flask) في الخلفية
+    # تشغيل لوحة التحكم (المنفذ 10000)
     admin_process = subprocess.Popen([sys.executable, "admin.py"])
-    print("✅ لوحة التحكم تعمل على المنفذ 5000")
+    print("✅ لوحة التحكم تعمل")
     
-    # انتظار 5 ثوانٍ ليتأكد تشغيل لوحة التحكم
-    time.sleep(5)
+    time.sleep(3)
     
     # تشغيل البوت
     bot_process = subprocess.Popen([sys.executable, "bot.py"])
     print("✅ البوت يعمل")
     
-    # الانتظار حتى انتهاء أي عملية
     bot_process.wait()
     admin_process.wait()
