@@ -3,5 +3,5 @@ services:
     name: dice-bot
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python start.py
+    startCommand: python dice-bot.py
     plan: free
