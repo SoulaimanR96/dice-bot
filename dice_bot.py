@@ -2,164 +2,93 @@ import requests
 import json
 import time
 import random
-from database import *
-from threading import Thread
+import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from database import *
 
 TOKEN = "8650482506:AAFswJ6DEtb1O_x5sUcUZNlqu5HbeQgQ2bI"
 URL = f"https://api.telegram.org/bot{TOKEN}/"
 
 # إعدادات من قاعدة البيانات
-def get_win_probability():
-    return float(get_setting("win_probability"))
+def get_win_probability(): return float(get_setting("win_probability"))
+def get_reward_coins(): return int(get_setting("reward_coins"))
+def get_cost_per_roll(): return int(get_setting("cost_per_roll"))
 
-def get_reward_coins():
-    return int(get_setting("reward_coins"))
-
-def get_cost_per_roll():
-    return int(get_setting("cost_per_roll"))
-
-# دوال مساعدة
 def send_message(chat_id, text, reply_markup=None):
     data = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
-    if reply_markup:
-        data["reply_markup"] = json.dumps(reply_markup)
-    try:
-        requests.post(URL + "sendMessage", json=data, timeout=10)
-    except Exception as e:
-        print(f"Error: {e}")
+    if reply_markup: data["reply_markup"] = json.dumps(reply_markup)
+    try: requests.post(URL + "sendMessage", json=data, timeout=10)
+    except: pass
 
 def edit_message(chat_id, message_id, text, reply_markup=None):
     data = {"chat_id": chat_id, "message_id": message_id, "text": text, "parse_mode": "Markdown"}
-    if reply_markup:
-        data["reply_markup"] = json.dumps(reply_markup)
-    try:
-        requests.post(URL + "editMessageText", json=data, timeout=10)
-    except Exception as e:
-        print(f"Error: {e}")
+    if reply_markup: data["reply_markup"] = json.dumps(reply_markup)
+    try: requests.post(URL + "editMessageText", json=data, timeout=10)
+    except: pass
 
 def answer_callback(callback_id):
-    try:
-        requests.post(URL + "answerCallbackQuery", json={"callback_query_id": callback_id}, timeout=10)
-    except Exception as e:
-        print(f"Error: {e}")
+    try: requests.post(URL + "answerCallbackQuery", json={"callback_query_id": callback_id}, timeout=10)
+    except: pass
 
-# لوحة الأزرار الرئيسية
 def get_main_keyboard():
-    return {
-        "inline_keyboard": [
-            [{"text": "🎲 ابدأ اللعب", "callback_data": "play"}],
-            [{"text": "💰 رصيدي", "callback_data": "balance"}],
-            [{"text": "📊 الترتيب", "callback_data": "leaderboard"}]
-        ]
-    }
+    return {"inline_keyboard": [[{"text": "🎲 ابدأ اللعب", "callback_data": "play"}], [{"text": "💰 رصيدي", "callback_data": "balance"}], [{"text": "📊 الترتيب", "callback_data": "leaderboard"}]]}
 
-# بدء اللعبة
 def start_game(chat_id, user_id, username, first_name):
     create_user(user_id, username, first_name)
-    msg = "🎲 *مرحباً في لعبة الأصدقاء!*\nاختر أحد الخيارات:"
-    send_message(chat_id, msg, reply_markup=get_main_keyboard())
+    send_message(chat_id, "🎲 *مرحباً في لعبة الأصدقاء!*", reply_markup=get_main_keyboard())
 
-# عرض الرصيد
 def show_balance(chat_id, message_id, user_id):
     user = get_user(user_id)
     if user:
-        coins = user[3]
-        rolls = user[4]
-        wins = user[5]
-        msg = f"💰 *رصيدك الحالي:* {coins} Coin\n"
-        msg += f"🎲 *عدد اللفات:* {rolls}\n"
-        msg += f"🏆 *عدد مرات الفوز:* {wins}"
+        msg = f"💰 *رصيدك:* {user[3]} Coin\n🎲 *اللفات:* {user[4]}\n🏆 *الفوز:* {user[5]}"
         edit_message(chat_id, message_id, msg, reply_markup=get_main_keyboard())
-    else:
-        edit_message(chat_id, message_id, "❌ مستخدم غير موجود.", reply_markup=get_main_keyboard())
 
-# عرض الترتيب
 def show_leaderboard(chat_id, message_id):
-    top_users = get_top_users(10)
-    if top_users:
-        msg = "🏆 *قائمة الأغنياء:*\n\n"
-        for i, user in enumerate(top_users, 1):
-            name = user[2] or user[1] or str(user[0])
-            coins = user[3]
-            msg += f"{i}. {name} — {coins} Coin\n"
+    top = get_top_users(10)
+    if top:
+        msg = "🏆 *الترتيب:*\n" + "\n".join([f"{i}. {u[2] or u[1] or u[0]} — {u[3]} Coin" for i, u in enumerate(top, 1)])
         edit_message(chat_id, message_id, msg, reply_markup=get_main_keyboard())
     else:
         edit_message(chat_id, message_id, "لا يوجد مستخدمون بعد.", reply_markup=get_main_keyboard())
 
-# تنفيذ الرمية
 def perform_roll(chat_id, message_id, user_id):
     user = get_user(user_id)
-    if not user:
-        edit_message(chat_id, message_id, "❌ حدث خطأ. أعد إرسال /start", reply_markup=get_main_keyboard())
-        return
-    
+    if not user: return
     coins = user[3]
     cost = get_cost_per_roll()
-    
     if coins < cost:
-        msg = f"❌ رصيدك لا يكفي!\nتحتاج {cost} Coin للعب.\nرصيدك الحالي: {coins} Coin"
-        edit_message(chat_id, message_id, msg, reply_markup=get_main_keyboard())
+        edit_message(chat_id, message_id, f"❌ رصيدك {coins} Coin، تحتاج {cost} Coin للعب.", reply_markup=get_main_keyboard())
         return
-    
-    # خصم تكلفة اللعبة
     new_coins = coins - cost
-    
-    # تحديد الفوز بناءً على نسبة الربح
-    win_prob = get_win_probability()
-    is_win = random.random() < win_prob
-    
-    roll_result = random.randint(1, 6)
-    
+    is_win = random.random() < get_win_probability()
+    result = random.randint(1, 6)
     if is_win:
         reward = get_reward_coins()
         new_coins += reward
         increment_wins_count(user_id)
-        result_text = f"🎉 *فوز!* 🎉\nحصلت على: {roll_result}\nربحت {reward} Coin إضافية!"
+        msg = f"🎉 *فوز!* النتيجة: {result}\nربحت {reward} Coin!"
     else:
-        result_text = f"😔 *خسارة* 😔\nحصلت على: {roll_result}\nحظاً أوفر المرة القادمة."
-    
-    # تحديث الرصيد وتسجيل
+        msg = f"😔 *خسارة* النتيجة: {result}"
     update_user_coins(user_id, new_coins)
     increment_rolls_count(user_id)
-    add_roll_log(user_id, user[4] + 1, roll_result, is_win, coins, new_coins)
-    
-    msg = f"{result_text}\n\n💰 رصيدك الآن: {new_coins} Coin\n"
-    msg += f"🎲 تكلفة اللفة: {cost} Coin"
-    
+    add_roll_log(user_id, user[4]+1, result, is_win, coins, new_coins)
+    msg += f"\n💰 رصيدك: {new_coins} Coin"
     edit_message(chat_id, message_id, msg, reply_markup=get_main_keyboard())
 
-# معالجة الأزرار
 def handle_callback(query):
     chat_id = query["message"]["chat"]["id"]
     message_id = query["message"]["message_id"]
-    callback_id = query["id"]
-    data = query["data"]
     user = query["from"]
-    user_id = user["id"]
-    username = user.get("username", "")
-    first_name = user.get("first_name", "")
-    
-    answer_callback(callback_id)
-    
-    if data == "play":
-        perform_roll(chat_id, message_id, user_id)
-    elif data == "balance":
-        show_balance(chat_id, message_id, user_id)
-    elif data == "leaderboard":
-        show_leaderboard(chat_id, message_id)
-    elif data == "back_to_menu":
-        msg = "🎲 *مرحباً في لعبة الأصدقاء!*\nاختر أحد الخيارات:"
-        edit_message(chat_id, message_id, msg, reply_markup=get_main_keyboard())
+    answer_callback(query["id"])
+    if query["data"] == "play": perform_roll(chat_id, message_id, user["id"])
+    elif query["data"] == "balance": show_balance(chat_id, message_id, user["id"])
+    elif query["data"] == "leaderboard": show_leaderboard(chat_id, message_id)
 
-# معالجة الرسائل
 def handle_updates(updates):
     for update in updates.get("result", []):
-        if "message" in update and "text" in update["message"]:
-            if update["message"]["text"] == "/start":
-                chat_id = update["message"]["chat"]["id"]
-                user = update["message"]["from"]
-                start_game(chat_id, user["id"], user.get("username", ""), user.get("first_name", ""))
+        if "message" in update and "text" in update["message"] and update["message"]["text"] == "/start":
+            u = update["message"]["from"]
+            start_game(update["message"]["chat"]["id"], u["id"], u.get("username", ""), u.get("first_name", ""))
         elif "callback_query" in update:
             handle_callback(update["callback_query"])
 
@@ -169,26 +98,16 @@ class DummyHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"Bot is running!")
+threading.Thread(target=lambda: HTTPServer(('0.0.0.0', 10000), DummyHandler).serve_forever(), daemon=True).start()
 
-def run_dummy_server():
-    server = HTTPServer(('0.0.0.0', 10000), DummyHandler)
-    server.serve_forever()
-
-Thread(target=run_dummy_server, daemon=True).start()
-
-# تشغيل البوت
-print("✅ بوت الأصدقاء يعمل...")
-last_update_id = 0
+print("✅ البوت يعمل...")
+last_id = 0
 while True:
     try:
-        response = requests.get(URL + "getUpdates", params={"offset": last_update_id + 1, "timeout": 30}, timeout=35)
-        updates = response.json()
+        resp = requests.get(URL + "getUpdates", params={"offset": last_id + 1, "timeout": 30}, timeout=35)
+        updates = resp.json()
         if updates.get("ok") and updates.get("result"):
             handle_updates(updates)
-            last_update_id = updates["result"][-1]["update_id"]
-    except requests.exceptions.Timeout:
-        continue
-    except Exception as e:
-        print(f"Error: {e}")
-        time.sleep(5)
+            last_id = updates["result"][-1]["update_id"]
+    except: pass
     time.sleep(1)
