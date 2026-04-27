@@ -81,11 +81,12 @@ def get_user(user_id):
     conn.close()
     return user
 
+# تعديل دالة create_user - الرصيد الافتراضي 0
 def create_user(user_id, username, first_name):
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     c.execute("INSERT OR IGNORE INTO users (user_id, username, first_name, coins) VALUES (?, ?, ?, ?)",
-              (user_id, username, first_name, 100))
+              (user_id, username, first_name, 0))  # <- رصيد ابتدائي 0
     conn.commit()
     conn.close()
 
