@@ -11,7 +11,7 @@ TOKEN = "8650482506:AAFswJ6DEtb1O_x5sUcUZNlqu5HbeQgQ2bI"
 URL = f"https://api.telegram.org/bot{TOKEN}/"
 
 # ================== معرف المشرف ==================
-ADMIN_ID = 123456789  # ⚠️ ضع معرفك الحقيقي هنا
+ADMIN_ID = 8317757440  # ⚠️ ضع معرفك الحقيقي هنا
 
 def is_admin(user_id):
     return user_id == ADMIN_ID
