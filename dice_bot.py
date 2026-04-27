@@ -13,7 +13,7 @@ URL = f"https://api.telegram.org/bot{TOKEN}/"
 
 # ================== معرف المشرف ==================
 # ⚠️ ضع معرف تليغرام الخاص بك هنا (أرسل لـ @userinfobot لتعرف رقمك)
-ADMIN_ID = 123456789  # غير هذا الرقم إلى معرفك الحقيقي
+ADMIN_ID = 8317757440  # غير هذا الرقم إلى معرفك الحقيقي
 
 def is_admin(user_id):
     return user_id == ADMIN_ID
