@@ -246,5 +246,17 @@ def add_roll_log(user_id, roll_number, bet_amount, result, is_win, win_amount, c
               (user_id, roll_number, bet_amount, result, is_win, win_amount, coins_before, coins_after))
     conn.commit()
     conn.close()
+def get_jackpot_chance():
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    result = c.execute("SELECT value FROM settings WHERE key = 'jackpot_chance'").fetchone()
+    conn.close()
+    return float(result[0]) if result else 5
 
+def get_jackpot_percentage():
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    result = c.execute("SELECT value FROM settings WHERE key = 'jackpot_percentage'").fetchone()
+    conn.close()
+    return float(result[0]) if result else 2
 init_db()
