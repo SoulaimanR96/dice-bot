@@ -5,7 +5,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
 # جلب التوكن من متغيرات البيئة (نضيفه لاحقاً في Render)
-TOKEN = os.environ.get("8650482506:AAFswJ6DEtb1O_x5sUcUZNlqu5HbeQgQ2bI")
+TOKEN = os.environ.get("AAFswJ6DEtb1O_x5sUcUZNlqu5HbeQgQ2bI")
 
 if not TOKEN:
     raise ValueError("❌ لم يتم العثور على التوكن! تأكد من إضافة BOT_TOKEN في إعدادات Render.")
