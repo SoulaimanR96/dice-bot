@@ -1,4 +1,2 @@
 requests
-flask
-flask-httpauth
-werkzeug
+psycopg2-binary
